@@ -1,4 +1,4 @@
-# AI 导师与成长规划系统
+# 基于大语言模型与检索增强用户记忆的大学生成长规划智能系统
 
 一个面向大学生与管理员的全栈导师平台，提供基于角色的访问控制、临时委托管理员权限、成长规划（目标拆解 / 行动计划 / 成长记录），以及通过 OpenAI 兼容提供方实现的 AI 聊天支持。可选启用 UKL（用户知识层）以在聊天与规划场景中组装跨会话记忆上下文。
 
@@ -37,7 +37,7 @@
 
 ### 环境要求
 
-- Python 3.11+
+- Python 3.10+
 - Node.js 20+
 - MySQL 8+
 
@@ -244,7 +244,7 @@ npm run build
 ## 项目结构
 
 ```text
-ai-mentor-and-growth-planning-system/
+LLM-Based-Personalized-Growth-Planning-System-with-Retrieval-Augmented-User-Memory/
 ├── backend/
 │   ├── app/
 │   │   ├── core/       # 配置、安全、数据库、AI 线程池、事件总线、WebSocket
