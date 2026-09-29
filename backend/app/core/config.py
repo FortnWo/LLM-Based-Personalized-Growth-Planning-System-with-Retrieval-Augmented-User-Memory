@@ -132,6 +132,14 @@ class Settings(BaseSettings):
     MEMORY_FACT_MIN_SCORE: float = 0.72
     MEMORY_FACT_MAX_PER_TURN: int = 3
     MEMORY_FACT_MIN_SALIENCE: float = 0.4
+    VECTOR_STORE_ENABLED: bool = False
+    VECTOR_STORE_BACKEND: str = "none"
+    VECTOR_STORE_URL: str = "http://localhost:6333"
+    VECTOR_STORE_API_KEY: str | None = None
+    VECTOR_STORE_COLLECTION: str = "memory_facts"
+    VECTOR_STORE_TIMEOUT_SECONDS: float = 3.0
+    VECTOR_STORE_STRICT: bool = False
+    EMBEDDING_DIMENSIONS: int = 1536
     MEMORY_FACT_EXTRACTION_SYSTEM_PROMPT: str = (
         "你是记忆事实提取助手。根据一轮用户与助手对话，提取对话中明确陈述的、可长期保留的个人事实。"
         "仅输出严格 JSON 数组；每项含键 fact（中文字符串）、salience（0-1 浮点数）、"

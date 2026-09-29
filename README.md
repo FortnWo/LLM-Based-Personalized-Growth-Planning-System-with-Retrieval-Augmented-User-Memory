@@ -117,11 +117,32 @@ npm run build
 - `GOAL_BREAKDOWN_ENABLED`：启用 / 禁用目标拆解生成接口。
 - `ACTION_PLAN_ENABLED`：启用 / 禁用行动计划生成接口。
 - `UKL_ENABLED`：启用 UKL 画像双写与聊天 / 拆解 / 行动计划上下文组装；详见 `docs/rag-external-memory/`。
-- `MEMORY_FACT_*`、`EMBEDDING_MODEL`：记忆事实抽取与向量检索（需提供方支持 `/embeddings`）。
+- `MEMORY_FACT_*`、`EMBEDDING_MODEL`、`EMBEDDING_DIMENSIONS`：记忆事实抽取与向量检索（需提供方支持 `/embeddings`）。
+- `VECTOR_STORE_ENABLED`、`VECTOR_STORE_BACKEND`、`VECTOR_STORE_URL`、`VECTOR_STORE_COLLECTION`：可选 Qdrant 向量索引配置。MySQL 仍是事实源，Qdrant 不可用时回退到 JSON cosine / 关键词检索。
 - `BOOTSTRAP_ADMIN_USERNAME`、`BOOTSTRAP_ADMIN_EMAIL`、`BOOTSTRAP_ADMIN_PASSWORD`、`BOOTSTRAP_ADMIN_FULL_NAME`：
   可选的启动初始化管理员；配置后，后端会在不存在时创建该管理员。
 
 更多 UKL 相关开关（会话摘要、执行切片、成长日志、里程碑反馈、模式分析、跨会话叙事等）见 `backend/.env.example` 与 `app/core/config.py`。
+
+### 向量检索试验
+
+第一阶段继续使用当前 OpenAI 兼容 Embedding API，默认模型为 `text-embedding-3-small`。如需启动本地 Qdrant：
+
+```bash
+docker compose -f docker-compose.vector.yml up -d
+```
+
+在 `backend/.env` 中设置 `UKL_ENABLED=true`、`MEMORY_FACT_EMBEDDING_ENABLED=true`、`VECTOR_STORE_ENABLED=true` 和 `VECTOR_STORE_BACKEND=qdrant`，确认 `LLM_API_KEY`、`LLM_API_BASE_URL` 与 `EMBEDDING_MODEL` 可用后启动后端。Qdrant 首次写入时会自动创建 collection，并校验向量维度。
+
+已有事实可用回填脚本同步：
+
+```bash
+cd backend
+python scripts/reindex_memory_facts.py --dry-run
+python scripts/reindex_memory_facts.py --limit 100
+```
+
+重建索引使用 `--rebuild`；该操作只重建向量索引，不删除 MySQL 中的事实。生产环境应为 Qdrant 配置持久卷、访问密钥和备份策略。
 
 前端变量：
 
@@ -271,7 +292,8 @@ ai-mentor-and-growth-planning-system/
 └── logs/               # 运行时错误日志（error.log）
 ```
 
-##注意：如果Growth_Records页面出现Vue组件错误，可能是由于缺少echarts包，使用
+## 注意
+如果Growth_Records页面出现Vue组件错误，可能是由于缺少echarts包，使用
 
 ```bash
 npm install echarts

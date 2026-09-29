@@ -129,6 +129,41 @@ def _store_embedding(db: Session, *, user_id: int, slice_id: int, embedding: lis
     )
 
 
+def _index_memory_fact(
+    *,
+    user_id: int,
+    slice_id: int,
+    embedding: list[float],
+    fact: str,
+    salience: float,
+    session_id: int | None,
+    message_id: int | None,
+) -> None:
+    if not settings.VECTOR_STORE_ENABLED:
+        return
+    try:
+        from app.services import vector_store
+
+        vector_store.upsert_memory_fact(
+            slice_id=slice_id,
+            embedding=embedding,
+            payload={
+                "user_id": user_id,
+                "slice_id": slice_id,
+                "model": settings.EMBEDDING_MODEL,
+                "dimensions": len(embedding),
+                "fact": fact,
+                "salience": salience,
+                "session_id": session_id,
+                "message_id": message_id,
+            },
+        )
+    except Exception:
+        logger.exception("Memory fact vector index failed user_id=%s slice_id=%s", user_id, slice_id)
+        if settings.VECTOR_STORE_STRICT:
+            raise
+
+
 def ingest_memory_fact(
     db: Session,
     user_id: int,
@@ -172,6 +207,15 @@ def ingest_memory_fact(
             embedding = ai_service.create_embedding(text)
             if embedding:
                 _store_embedding(db, user_id=user_id, slice_id=slice_row.id, embedding=embedding)
+                _index_memory_fact(
+                    user_id=user_id,
+                    slice_id=slice_row.id,
+                    embedding=embedding,
+                    fact=text,
+                    salience=salience,
+                    session_id=session_id,
+                    message_id=message_id,
+                )
         except Exception:
             logger.exception("Memory fact embedding failed slice_id=%s", slice_row.id)
 
@@ -238,6 +282,23 @@ def search_memory_facts(
             query_embedding = None
 
         if query_embedding:
+            if settings.VECTOR_STORE_ENABLED:
+                try:
+                    from app.services import vector_store
+
+                    vector_hits = vector_store.search_memory_facts(
+                        user_id=user_id,
+                        embedding=query_embedding,
+                        limit=limit,
+                        score_threshold=threshold,
+                    )
+                    if vector_hits:
+                        return vector_hits
+                except Exception:
+                    logger.exception("Memory fact vector search failed user_id=%s", user_id)
+                    if settings.VECTOR_STORE_STRICT:
+                        raise
+
             rows = (
                 db.query(MemoryEmbedding, UklSlice)
                 .join(UklSlice, UklSlice.id == MemoryEmbedding.slice_id)

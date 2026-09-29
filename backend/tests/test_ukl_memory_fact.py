@@ -195,3 +195,66 @@ def test_salience_skips_small_talk(db_session, sample_user, monkeypatch):
     )
     assert count == 0
     assert called["value"] is False
+
+
+def test_ingest_memory_fact_indexes_qdrant_when_enabled(db_session, sample_user, monkeypatch):
+    monkeypatch.setattr(settings, "UKL_ENABLED", True)
+    monkeypatch.setattr(settings, "MEMORY_FACT_ENABLED", True)
+    monkeypatch.setattr(settings, "MEMORY_FACT_EMBEDDING_ENABLED", True)
+    monkeypatch.setattr(settings, "VECTOR_STORE_ENABLED", True)
+    monkeypatch.setattr("app.services.ai_service.create_embedding", lambda text: [1.0, 0.0])
+
+    indexed = {}
+    monkeypatch.setattr(
+        "app.services.vector_store.upsert_memory_fact",
+        lambda **kwargs: indexed.update(kwargs),
+    )
+
+    row = ukl_memory_fact_service.ingest_memory_fact(
+        db_session,
+        sample_user.id,
+        fact="用户计划周三学习英语",
+        session_id=1,
+        message_id=20,
+        salience=0.9,
+    )
+
+    assert row is not None
+    assert indexed["slice_id"] == row.id
+    assert indexed["payload"]["user_id"] == sample_user.id
+    assert indexed["payload"]["fact"] == "用户计划周三学习英语"
+
+
+def test_qdrant_failure_falls_back_to_json_search(db_session, sample_user, monkeypatch):
+    monkeypatch.setattr(settings, "UKL_ENABLED", True)
+    monkeypatch.setattr(settings, "MEMORY_FACT_ENABLED", True)
+    monkeypatch.setattr(settings, "MEMORY_FACT_EMBEDDING_ENABLED", True)
+    monkeypatch.setattr(settings, "VECTOR_STORE_ENABLED", True)
+    monkeypatch.setattr(settings, "MEMORY_FACT_MIN_SCORE", 0.5)
+    monkeypatch.setattr("app.services.ai_service.create_embedding", lambda text: [1.0, 0.0])
+
+    row = ukl_memory_fact_service.ingest_memory_fact(
+        db_session,
+        sample_user.id,
+        fact="用户计划周三学习英语",
+        session_id=1,
+        message_id=21,
+        salience=0.9,
+    )
+    db_session.commit()
+    embedding = db_session.query(MemoryEmbedding).filter(MemoryEmbedding.slice_id == row.id).one()
+    embedding.embedding_json = json.dumps([1.0, 0.0])
+    db_session.commit()
+
+    def fail_search(**kwargs):
+        raise RuntimeError("qdrant unavailable")
+
+    monkeypatch.setattr("app.services.vector_store.search_memory_facts", fail_search)
+    hits = ukl_memory_fact_service.search_memory_facts(
+        db_session,
+        sample_user.id,
+        "之前说过周三学习英语",
+    )
+
+    assert hits
+    assert hits[0]["fact"] == "用户计划周三学习英语"
