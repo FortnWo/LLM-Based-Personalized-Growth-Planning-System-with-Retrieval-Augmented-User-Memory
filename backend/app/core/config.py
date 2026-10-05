@@ -127,7 +127,7 @@ class Settings(BaseSettings):
     MEMORY_FACT_ENABLED: bool = True
     MEMORY_FACT_EXTRACTION_ENABLED: bool = True
     MEMORY_FACT_EMBEDDING_ENABLED: bool = True
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_MODEL: str = "text-embedding-v4"
     MEMORY_FACT_TOP_K: int = 5
     MEMORY_FACT_MIN_SCORE: float = 0.72
     MEMORY_FACT_MAX_PER_TURN: int = 3

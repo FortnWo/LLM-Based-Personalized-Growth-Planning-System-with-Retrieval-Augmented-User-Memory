@@ -124,9 +124,9 @@ npm run build
 
 更多 UKL 相关开关（会话摘要、执行切片、成长日志、里程碑反馈、模式分析、跨会话叙事等）见 `backend/.env.example` 与 `app/core/config.py`。
 
-### 向量检索试验
+### 向量检索
 
-第一阶段继续使用当前 OpenAI 兼容 Embedding API，默认模型为 `text-embedding-3-small`。如需启动本地 Qdrant：
+第一阶段继续使用当前 OpenAI 兼容 Embedding API，默认模型为 `text-embedding-v4`。如需启动本地 Qdrant：
 
 ```bash
 docker compose -f docker-compose.vector.yml up -d
@@ -138,8 +138,8 @@ docker compose -f docker-compose.vector.yml up -d
 
 ```bash
 cd backend
-python scripts/reindex_memory_facts.py --dry-run
-python scripts/reindex_memory_facts.py --limit 100
+python -m scripts.reindex_memory_facts --dry-run
+python -m scripts.reindex_memory_facts --dry-run --limit 100
 ```
 
 重建索引使用 `--rebuild`；该操作只重建向量索引，不删除 MySQL 中的事实。生产环境应为 Qdrant 配置持久卷、访问密钥和备份策略。
