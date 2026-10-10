@@ -85,3 +85,7 @@ def ensure_database_schema(engine: Engine) -> None:
     if "chat_session_summary" not in table_names:
         logger.info("Applying migration 008_add_chat_session_summary.sql")
         _run_sql_file(engine, "008_add_chat_session_summary.sql")
+
+    if "memory_embedding" not in table_names:
+        logger.info("Applying migration 009_add_memory_embedding.sql")
+        _run_sql_file(engine, "009_add_memory_embedding.sql")

@@ -6,7 +6,7 @@
 | --- | --- |
 | 前端 | Vue 3、TypeScript、Vue Router、Axios、Vite、ECharts |
 | 后端 | FastAPI、SQLAlchemy 2、Pydantic v2、Passlib、PyJWT |
-| 数据库 | MySQL 8 |
+| 数据库 | MySQL 8；可选 Qdrant 向量索引 |
 | AI 集成 | OpenAI SDK 与兼容提供方；可选 Embedding API（UKL 记忆事实检索） |
 
 ## 高层设计
@@ -20,6 +20,11 @@ Vue SPA
     -> Service layer
     -> SQLAlchemy models
     -> MySQL
+
+  UKL memory facts
+    -> Embedding API
+    -> MySQL memory_embedding (可重建元数据)
+    -> Qdrant memory_facts collection (可选检索索引)
 
 后台 AI 任务 (ai_worker 线程池)
     -> chat / goal breakdown / action plan / profile / UKL 投影
@@ -45,7 +50,7 @@ Vue SPA
 
 - `app/core/config.py`：由环境变量驱动的配置（含 UKL 开关与各类系统提示词）。
 - `app/core/database.py`：引擎、会话、声明式基类。
-- `app/core/schema_bootstrap.py`：启动时幂等补齐缺失表 / 列（迁移 005–008）。
+- `app/core/schema_bootstrap.py`：启动时幂等补齐缺失表 / 列（迁移 005–009）。
 - `app/core/security.py`：密码哈希、JWT 创建 / 解析、认证依赖、`require_admin` 权限检查。
 - `app/core/bootstrap.py`：可选的启动管理员初始化。
 - `app/core/ai_worker.py`：后台 AI 任务线程池与 `submit_ai_task`。
@@ -66,6 +71,7 @@ Vue SPA
 | `growth_service` / `growth_record_service` / `growth_summary_service` | 成长记录、统计、周总结 |
 | `ukl_service` 及 `ukl_*` 系列 | UKL 切片读写、投影、叙事、模式、里程碑、记忆事实 |
 | `ai_service` | LLM / Embedding 调用封装 |
+| `vector_store` | 可选 Qdrant collection、用户过滤、upsert、查询和健康检查 |
 | `system_config_service` / `notify_service` / `verification_service` | 管理后台配置、通知与验证码 |
 | `ai_rate_limit_service` | 聊天 AI 限流 |
 | `admin_tool_service` | 管理助手工具调用 |
@@ -93,7 +99,11 @@ Vue SPA
 
 ## UKL（用户知识层）
 
-当 `UKL_ENABLED=true` 时，系统在多个业务场景中写入与读取 `ukl_slice` 表中的结构化切片，并在生成 Prompt 前动态组装上下文。主要切片类型包括会话摘要、拆解叙事、执行切片、成长日志投影、跨会话叙事、记忆事实等。向量检索依赖 `memory_embedding` 表与提供方的 Embedding API。
+当 `UKL_ENABLED=true` 时，系统在多个业务场景中写入与读取 `ukl_slice` 表中的结构化切片，并在生成 Prompt 前动态组装上下文。主要切片类型包括会话摘要、拆解叙事、执行切片、成长日志投影、跨会话叙事、记忆事实等。
+
+记忆事实的权威数据保存在 MySQL 的 `ukl_slice`；`memory_embedding` 保存模型、维度和 JSON 向量基线。启用 `VECTOR_STORE_ENABLED=true` 且 backend 为 `qdrant` 后，事实会以 `ukl_slice.id` 作为 point ID 写入 Qdrant `memory_facts` collection。查询强制使用 `user_id` payload filter，Qdrant 不可用时依次回退到 MySQL JSON cosine 和关键词检索，因此向量索引不是业务数据的唯一来源。
+
+Embedding 模型变更或维度变更时应使用新的 collection 并执行回填，不得在同一 collection 中混用不同向量空间。回填入口为 `backend/scripts/reindex_memory_facts.py`。
 
 详细设计与落地进度见 `docs/rag-external-memory/`。
 
